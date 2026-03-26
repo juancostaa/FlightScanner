@@ -277,10 +277,12 @@ def _print_results_table(results, stats: Optional[dict]) -> None:
     table.add_column("Tipo", justify="center")
     table.add_column("Duração", justify="right")
     table.add_column("Preço", justify="right", style="bold green")
+    table.add_column("Comprar", justify="center")
 
     for r in results:
         tipo = "Direto" if r.is_direct else f"{r.stops} conexão(ões)"
-        table.add_row(r.airline, tipo, format_duration(r.duration_minutes), format_price(r.price_brl))
+        link = f"[link={r.booking_url}][cyan]Skyscanner[/cyan][/link]" if r.booking_url else "-"
+        table.add_row(r.airline, tipo, format_duration(r.duration_minutes), format_price(r.price_brl), link)
 
     console.print()
     console.print(table)

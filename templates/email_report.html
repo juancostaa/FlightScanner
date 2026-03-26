@@ -15,6 +15,7 @@
         <th>Tipo</th>
         <th>Duração</th>
         <th>Preço</th>
+        <th>Comprar</th>
       </tr>
     </thead>
     <tbody>
@@ -24,6 +25,7 @@
         <td>{{ "Direto" if flight.is_direct else flight.stops ~ " conexão(ões)" }}</td>
         <td>{{ flight.duration_minutes | duration }}</td>
         <td>{{ flight.price_brl | price }}</td>
+        <td><a href="{{ flight.booking_url }}" target="_blank">Ver no Skyscanner</a></td>
       </tr>
       {% endfor %}
     </tbody>

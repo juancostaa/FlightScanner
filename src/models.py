@@ -15,6 +15,7 @@ class FlightResult:
     price_brl: float
     passengers: int
     searched_at: datetime
+    booking_url: str = ""
 
 
 @dataclass

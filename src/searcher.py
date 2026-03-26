@@ -93,6 +93,7 @@ def _parse_flight(
     is_direct = stops == 0
     duration_minutes = raw.get("total_duration", 0)
     price_brl = float(raw.get("price", 0))
+    booking_url = _build_skyscanner_url(origin, destination, departure_date, return_date, passengers)
 
     return FlightResult(
         origin=origin.upper(),
@@ -106,4 +107,20 @@ def _parse_flight(
         price_brl=price_brl,
         passengers=passengers,
         searched_at=datetime.now(),
+        booking_url=booking_url,
+    )
+
+
+def _build_skyscanner_url(
+    origin: str,
+    destination: str,
+    departure_date: date,
+    return_date: date,
+    passengers: int,
+) -> str:
+    dep = departure_date.strftime("%Y%m%d")
+    ret = return_date.strftime("%Y%m%d")
+    return (
+        f"https://www.skyscanner.com.br/transporte/passagens-aereas"
+        f"/{origin.lower()}/{destination.lower()}/{dep}/{ret}/?adults={passengers}"
     )

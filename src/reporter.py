@@ -76,6 +76,8 @@ def _build_text(context: dict, results: List[FlightResult], stats: Optional[dict
             f"  {r.airline:<28} {tipo:<14} "
             f"{format_duration(r.duration_minutes):<8} {format_price(r.price_brl)}"
         )
+        if r.booking_url:
+            lines.append(f"  → Comprar: {r.booking_url}")
 
     lines.append(sep)
 
