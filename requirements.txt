@@ -1,0 +1,5 @@
+serpapi
+APScheduler
+python-dotenv
+rich
+jinja2

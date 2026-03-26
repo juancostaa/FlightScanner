@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flight Price Report</title>
+</head>
+<body style="font-family: sans-serif; color: #333;">
+  <h2>✈️ {{ origin }} → {{ destination }}</h2>
+  <p>{{ departure_date }} → {{ return_date }} | {{ passengers }} passageiro(s)</p>
+
+  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+    <thead style="background: #f0f0f0;">
+      <tr>
+        <th>Companhia</th>
+        <th>Tipo</th>
+        <th>Duração</th>
+        <th>Preço</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for flight in flights %}
+      <tr>
+        <td>{{ flight.airline }}</td>
+        <td>{{ "Direto" if flight.is_direct else flight.stops ~ " conexão(ões)" }}</td>
+        <td>{{ flight.duration_minutes | duration }}</td>
+        <td>{{ flight.price_brl | price }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if stats %}
+  <p>
+    📉 Histórico (30 dias): média <strong>{{ stats.avg | price }}</strong> |
+    menor preço <strong>{{ stats.min | price }}</strong>
+  </p>
+  {% endif %}
+
+  <hr />
+  <small>Gerado automaticamente pelo Flight Price Monitor</small>
+</body>
+</html>

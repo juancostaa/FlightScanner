@@ -1,0 +1,10 @@
+.env
+.venv/
+data/flights.db
+data/jobs.json
+reports/
+__pycache__/
+*.pyc
+.DS_Store
+.claude
+CLAUDE.MD
