@@ -36,8 +36,21 @@ def send_report(to: str, subject: str, html: str, text: str) -> None:
 
 
 def make_subject(origin: str, destination: str, lowest_price: float) -> str:
-    """Gera o assunto do email com a rota e o menor preço encontrado."""
     return f"✈️ {origin} → {destination} | menor preço: R$ {lowest_price:,.0f}".replace(",", ".")
+
+
+def make_alert_subject(origin: str, destination: str, lowest_price: float, threshold: float) -> str:
+    return (
+        f"🚨 ALERTA {origin} → {destination} | R$ {lowest_price:,.0f} abaixo de R$ {threshold:,.0f}"
+        .replace(",", ".")
+    )
+
+
+def make_summary_subject(origin: str, destination: str, lowest_price: float, daily_avg: float) -> str:
+    return (
+        f"📋 Resumo {origin} → {destination} | menor R$ {lowest_price:,.0f} | média R$ {daily_avg:,.0f}"
+        .replace(",", ".")
+    )
 
 
 def _validate_config() -> None:

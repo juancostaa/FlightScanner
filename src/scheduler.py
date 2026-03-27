@@ -7,10 +7,10 @@ from typing import List
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 import config
-from src.emailer import make_subject, send_report
+from src.emailer import make_alert_subject, make_subject, make_summary_subject, send_report
 from src.history import get_price_stats, save_results
 from src.models import MonitorJob
-from src.reporter import build_report, make_report_filename, save_local_report
+from src.reporter import build_alert_report, build_report, build_summary_report, make_report_filename, save_local_report
 from src.searcher import search_flights
 
 # Formato usado para serializar/desserializar datas no JSON
@@ -48,7 +48,9 @@ def create_job(
     return_date,
     passengers: int,
     email: str,
-    interval_hours: int,
+    interval_minutes: int,
+    alert_mode: bool = False,
+    alert_threshold: float = 0.0,
 ) -> MonitorJob:
     """Cria e persiste um novo MonitorJob, retornando o objeto criado."""
     job = MonitorJob(
@@ -59,8 +61,10 @@ def create_job(
         return_date=return_date,
         passengers=passengers,
         email=email,
-        interval_hours=interval_hours,
-        next_run=datetime.now() + timedelta(hours=interval_hours),
+        interval_minutes=interval_minutes,
+        next_run=datetime.now() + timedelta(minutes=interval_minutes),
+        alert_mode=alert_mode,
+        alert_threshold=alert_threshold,
     )
     save_job(job)
     return job
@@ -84,7 +88,7 @@ def run_pending_jobs() -> None:
         print(f"Executando job {job.id}: {job.origin} → {job.destination}...")
         try:
             _execute_job(job)
-            job.next_run = now + timedelta(hours=job.interval_hours)
+            job.next_run = now + timedelta(minutes=job.interval_minutes)
             save_job(job)
         except Exception as e:
             print(f"  Erro no job {job.id}: {e}")
@@ -97,12 +101,12 @@ def schedule_with_apscheduler(job: MonitorJob) -> None:
         func=_execute_job,
         args=[job],
         trigger="interval",
-        hours=job.interval_hours,
+        minutes=job.interval_minutes,
         next_run_time=datetime.now(),  # executa imediatamente na primeira vez
         id=job.id,
         name=f"{job.origin}→{job.destination}",
     )
-    print(f"Agendamento ativo: {job.origin} → {job.destination} a cada {job.interval_hours}h. Ctrl+C para parar.")
+    print(f"Agendamento ativo: {job.origin} → {job.destination} a cada {_format_interval(job.interval_minutes)}. Ctrl+C para parar.")
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
@@ -123,14 +127,34 @@ def _execute_job(job: MonitorJob) -> None:
         job.passengers,
     )
     save_results(results)
-
     stats = get_price_stats(job.origin, job.destination)
-    report = build_report(results, stats)
+
+    if job.alert_mode:
+        _execute_alert_job(job, results, stats)
+    else:
+        report = build_report(results, stats)
+        filename = make_report_filename(job.origin, job.destination)
+        save_local_report(report["html"], filename)
+        subject = make_subject(job.origin, job.destination, results[0].price_brl)
+        send_report(job.email, subject, report["html"], report["text"])
+
+
+def _execute_alert_job(job: MonitorJob, results, stats) -> None:
+    """Lógica de envio no modo alerta: envia alerta se houver voo abaixo do threshold,
+    caso contrário envia resumo diário com menor preço e média."""
+    below = [r for r in results if r.price_brl <= job.alert_threshold]
+
+    if below:
+        report = build_alert_report(below, job.alert_threshold, stats)
+        subject = make_alert_subject(job.origin, job.destination, below[0].price_brl, job.alert_threshold)
+    else:
+        cheapest = results[0]
+        daily_avg = sum(r.price_brl for r in results) / len(results)
+        report = build_summary_report(cheapest, daily_avg, stats)
+        subject = make_summary_subject(job.origin, job.destination, cheapest.price_brl, daily_avg)
 
     filename = make_report_filename(job.origin, job.destination)
     save_local_report(report["html"], filename)
-
-    subject = make_subject(job.origin, job.destination, results[0].price_brl)
     send_report(job.email, subject, report["html"], report["text"])
 
 
@@ -147,6 +171,13 @@ def _write_raw(jobs: dict) -> None:
         json.dump(jobs, f, indent=2, ensure_ascii=False)
 
 
+def _format_interval(minutes: int) -> str:
+    if minutes % 60 == 0:
+        h = minutes // 60
+        return f"{h}h"
+    return f"{minutes}min"
+
+
 def _job_to_dict(job: MonitorJob) -> dict:
     return {
         "id": job.id,
@@ -156,12 +187,19 @@ def _job_to_dict(job: MonitorJob) -> dict:
         "return_date": job.return_date.isoformat(),
         "passengers": job.passengers,
         "email": job.email,
-        "interval_hours": job.interval_hours,
+        "interval_minutes": job.interval_minutes,
         "next_run": job.next_run.strftime(_DT_FMT),
+        "alert_mode": job.alert_mode,
+        "alert_threshold": job.alert_threshold,
     }
 
 
 def _dict_to_job(d: dict) -> MonitorJob:
+    # retrocompatibilidade: jobs.json antigos usavam interval_hours
+    if "interval_minutes" in d:
+        interval_minutes = d["interval_minutes"]
+    else:
+        interval_minutes = d["interval_hours"] * 60
     return MonitorJob(
         id=d["id"],
         origin=d["origin"],
@@ -170,6 +208,8 @@ def _dict_to_job(d: dict) -> MonitorJob:
         return_date=datetime.strptime(d["return_date"], _DATE_FMT).date(),
         passengers=d["passengers"],
         email=d["email"],
-        interval_hours=d["interval_hours"],
+        interval_minutes=interval_minutes,
         next_run=datetime.strptime(d["next_run"], _DT_FMT),
+        alert_mode=d.get("alert_mode", False),
+        alert_threshold=d.get("alert_threshold", 0.0),
     )

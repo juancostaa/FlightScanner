@@ -70,9 +70,7 @@ def _flow_new_search() -> None:
     passengers = _ask_int("Número de passageiros", min_val=1)
     email = _ask("Seu email para receber o relatório")
 
-    interval_hours = _ask_int(
-        "Reenviar report a cada quantas horas? (0 = não agendar)", min_val=0
-    )
+    interval_minutes = _ask_interval()
 
     with console.status("Buscando passagens...", spinner="dots"):
         try:
@@ -99,9 +97,19 @@ def _flow_new_search() -> None:
         except Exception as e:
             console.print(f"[red]Falha ao enviar email: {e}[/red]")
 
-    if interval_hours > 0:
-        job = create_job(origin, destination, departure_date, return_date, passengers, email, interval_hours)
-        console.print(f"Próximo report agendado em [cyan]{interval_hours}h[/cyan] ✓")
+    if interval_minutes > 0:
+        alert_mode, alert_threshold = _ask_alert_config()
+        job = create_job(
+            origin, destination, departure_date, return_date, passengers, email,
+            interval_minutes, alert_mode, alert_threshold,
+        )
+        if alert_mode:
+            console.print(
+                f"Modo alerta ativo: notificação quando < [cyan]{_format_price_brl(alert_threshold)}[/cyan], "
+                f"resumo caso contrário. Intervalo: [cyan]{_format_interval(interval_minutes)}[/cyan] ✓"
+            )
+        else:
+            console.print(f"Próximo report agendado em [cyan]{_format_interval(interval_minutes)}[/cyan] ✓")
         _ask_apscheduler(job)
 
 
@@ -127,16 +135,22 @@ def _flow_list_jobs() -> None:
     table.add_column("Ida / Volta")
     table.add_column("Passageiros", justify="center")
     table.add_column("Intervalo", justify="center")
+    table.add_column("Modo")
     table.add_column("Próximo run")
     table.add_column("Email")
 
     for i, job in enumerate(jobs, 1):
+        if job.alert_mode:
+            modo = f"Alerta < {_format_price_brl(job.alert_threshold)}"
+        else:
+            modo = "Completo"
         table.add_row(
             str(i),
             f"{job.origin} → {job.destination}",
             f"{job.departure_date.strftime('%d/%m/%Y')} / {job.return_date.strftime('%d/%m/%Y')}",
             str(job.passengers),
-            f"{job.interval_hours}h",
+            _format_interval(job.interval_minutes),
+            modo,
             job.next_run.strftime("%d/%m %H:%M"),
             job.email,
         )
@@ -250,6 +264,60 @@ def _ask_dates() -> tuple[date, date]:
         f"Volta: [bold]{return_date.strftime('%d/%m/%Y')}[/bold]"
     )
     return departure_date, return_date
+
+
+def _ask_interval() -> int:
+    """Pergunta se o usuário quer agendar e, se sim, coleta o intervalo em minutos."""
+    console.print("[dim]Unidade do intervalo de reenvio: [h] horas  [m] minutos  [0] não agendar[/dim]")
+    while True:
+        unit = console.input("[cyan]Unidade [h/m/0]:[/cyan] ").strip().lower()
+        if unit == "0":
+            return 0
+        if unit == "h":
+            hours = _ask_int("Intervalo em horas", min_val=1)
+            return hours * 60
+        if unit == "m":
+            return _ask_int("Intervalo em minutos (mínimo 1)", min_val=1)
+        console.print("Digite h, m ou 0.", style="yellow")
+
+
+def _format_interval(minutes: int) -> str:
+    if minutes % 60 == 0:
+        h = minutes // 60
+        return f"{h}h"
+    return f"{minutes}min"
+
+
+def _format_price_brl(value: float) -> str:
+    return f"R$ {value:,.0f}".replace(",", ".")
+
+
+def _ask_alert_config() -> tuple[bool, float]:
+    """Pergunta se quer modo alerta e, se sim, coleta o threshold."""
+    console.print()
+    console.print("  [bold cyan]1[/bold cyan] → Relatório completo a cada intervalo")
+    console.print("  [bold cyan]2[/bold cyan] → Alerta: email somente quando o preço estiver abaixo de X")
+    console.print()
+    while True:
+        choice = console.input("[cyan]Modo de notificação [1/2]:[/cyan] ").strip()
+        if choice == "1":
+            return False, 0.0
+        if choice == "2":
+            threshold = _ask_float("Valor limite em reais (ex: 2500)", min_val=1.0)
+            return True, threshold
+        console.print("Digite 1 ou 2.", style="yellow")
+
+
+def _ask_float(prompt: str, min_val: float = 0.0) -> float:
+    while True:
+        raw = console.input(f"[cyan]{prompt}:[/cyan] ").strip().replace(",", ".")
+        try:
+            val = float(raw)
+            if val >= min_val:
+                return val
+        except ValueError:
+            pass
+        console.print(f"Digite um valor numérico >= {min_val}.", style="yellow")
 
 
 def _parse_date(raw: str) -> date:

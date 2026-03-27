@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Resumo Diário</title>
+</head>
+<body style="font-family: sans-serif; color: #333;">
+  <div style="background: #e6f7ff; border-left: 4px solid #1890ff; padding: 12px 16px; margin-bottom: 16px;">
+    <strong>📋 Resumo diário</strong> — nenhum voo abaixo do limite encontrado nessa busca
+  </div>
+
+  <h2>✈️ {{ origin }} → {{ destination }}</h2>
+  <p>{{ departure_date }} → {{ return_date }} | {{ passengers }} passageiro(s)</p>
+
+  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 50%; margin-bottom: 16px;">
+    <tr style="background: #f0f0f0;">
+      <th style="text-align: left;">Média da busca atual</th>
+      <td><strong>{{ daily_avg | price }}</strong></td>
+    </tr>
+  </table>
+
+  <h3 style="margin-bottom: 8px;">Menor preço encontrado</h3>
+  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+    <thead style="background: #f0f0f0;">
+      <tr>
+        <th>Companhia</th>
+        <th>Tipo</th>
+        <th>Duração</th>
+        <th>Preço</th>
+        <th>Comprar</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ cheapest.airline }}</td>
+        <td>{{ "Direto" if cheapest.is_direct else cheapest.stops ~ " conexão(ões)" }}</td>
+        <td>{{ cheapest.duration_minutes | duration }}</td>
+        <td style="font-weight: bold;">{{ cheapest.price_brl | price }}</td>
+        <td><a href="{{ cheapest.booking_url }}" target="_blank" style="color: #1890ff;">Ver no Skyscanner</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  {% if stats %}
+  <p>
+    📉 Histórico (30 dias): média <strong>{{ stats.avg | price }}</strong> |
+    menor preço <strong>{{ stats.min | price }}</strong>
+  </p>
+  {% endif %}
+
+  <hr />
+  <small>Gerado automaticamente pelo Flight Price Monitor</small>
+</body>
+</html>

@@ -27,5 +27,7 @@ class MonitorJob:
     return_date: date
     passengers: int
     email: str
-    interval_hours: int
+    interval_minutes: int
     next_run: datetime
+    alert_mode: bool = False
+    alert_threshold: float = 0.0
